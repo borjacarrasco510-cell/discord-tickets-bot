@@ -27,6 +27,7 @@ const ticketBannerUrl = process.env.TICKET_BANNER_URL;
 const donationSupportRoleId = process.env.DONATION_SUPPORT_ROLE_ID;
 const paypalUrl = process.env.PAYPAL_URL;
 const bizumNumber = process.env.BIZUM_NUMBER;
+const suggestionsChannelId = process.env.SUGGESTIONS_CHANNEL_ID;
 const parseIds = (value) => (value || '')
   .split(',')
   .map((id) => id.trim())
@@ -199,6 +200,14 @@ const commands = [
     .setDescription('Publica el panel para abrir tickets')
     .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageGuild)
     .toJSON(),
+  new SlashCommandBuilder()
+    .setName('sugerencia')
+    .setDescription('Envía una sugerencia para el servidor')
+    .addStringOption((option) => option
+      .setName('texto')
+      .setDescription('Escribe tu sugerencia')
+      .setRequired(true))
+    .toJSON(),
 ];
 
 async function registerCommands() {
@@ -282,6 +291,8 @@ client.once(Events.ClientReady, async (readyClient) => {
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot || message.content.trim().toLowerCase() !== '!aportacion') return;
 
+  await message.delete().catch(() => {});
+
   const paymentDetails = [
     paypalUrl ? `💳 **PayPal:** ${paypalUrl}` : '💳 **PayPal:** No configurado',
     bizumNumber ? `📱 **Bizum:** ${bizumNumber}` : '📱 **Bizum:** No configurado',
@@ -300,6 +311,39 @@ client.on(Events.MessageCreate, async (message) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    if (interaction.isChatInputCommand() && interaction.commandName === 'sugerencia') {
+      const suggestion = interaction.options.getString('texto', true).trim();
+      const targetChannel = suggestionsChannelId
+        ? await interaction.guild.channels.fetch(suggestionsChannelId).catch(() => null)
+        : interaction.channel;
+
+      if (!targetChannel?.isTextBased()) {
+        await interaction.reply({
+          content: 'No se encontró el canal de sugerencias.',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const suggestionMessage = await targetChannel.send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x2ecc71)
+            .setTitle('💡 Nueva sugerencia')
+            .setDescription(suggestion)
+            .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
+            .setFooter({ text: 'Vota con 👍 o 👎' }),
+        ],
+      });
+      await suggestionMessage.react('👍');
+      await suggestionMessage.react('👎');
+      await interaction.reply({
+        content: `Tu sugerencia se ha publicado en ${targetChannel}.`,
+        ephemeral: true,
+      });
+      return;
+    }
+
     if (interaction.isChatInputCommand() && interaction.commandName === 'ticket-panel') {
       await interaction.deferReply({ ephemeral: true });
       const messages = await interaction.channel.messages.fetch({ limit: 100 });
