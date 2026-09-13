@@ -199,10 +199,6 @@ const commands = [
     .setDescription('Publica el panel para abrir tickets')
     .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageGuild)
     .toJSON(),
-  new SlashCommandBuilder()
-    .setName('aportacion')
-    .setDescription('Muestra los métodos de aportación')
-    .toJSON(),
 ];
 
 async function registerCommands() {
@@ -287,8 +283,8 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot || message.content.trim().toLowerCase() !== '!aportacion') return;
 
   const paymentDetails = [
-    paypalUrl ? `**PayPal:** ${paypalUrl}` : '**PayPal:** No configurado',
-    bizumNumber ? `**Bizum:** ${bizumNumber}` : '**Bizum:** No configurado',
+    paypalUrl ? `💳 **PayPal:** ${paypalUrl}` : '💳 **PayPal:** No configurado',
+    bizumNumber ? `📱 **Bizum:** ${bizumNumber}` : '📱 **Bizum:** No configurado',
   ].join('\n');
 
   await message.channel.send({
@@ -304,24 +300,6 @@ client.on(Events.MessageCreate, async (message) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    if (interaction.isChatInputCommand() && interaction.commandName === 'aportacion') {
-      const paymentDetails = [
-        paypalUrl ? `**PayPal:** ${paypalUrl}` : '**PayPal:** No configurado',
-        bizumNumber ? `**Bizum:** ${bizumNumber}` : '**Bizum:** No configurado',
-      ].join('\n');
-
-      await interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(ticketCategories.aportaciones.color)
-            .setTitle('💝 Aportaciones')
-            .setDescription(`Puedes realizar tu aportación mediante estos métodos:\n\n${paymentDetails}`)
-            .setFooter({ text: 'Gracias por apoyar el servidor.' }),
-        ],
-      });
-      return;
-    }
-
     if (interaction.isChatInputCommand() && interaction.commandName === 'ticket-panel') {
       await interaction.deferReply({ ephemeral: true });
       const messages = await interaction.channel.messages.fetch({ limit: 100 });
