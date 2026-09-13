@@ -1,5 +1,4 @@
 const fs = require('fs');
-
 const path = require('path');
 require('dotenv').config();
 
@@ -26,6 +25,8 @@ const supportRoleId = process.env.SUPPORT_ROLE_ID;
 const ticketLogChannelId = process.env.TICKET_LOG_CHANNEL_ID;
 const ticketBannerUrl = process.env.TICKET_BANNER_URL;
 const donationSupportRoleId = process.env.DONATION_SUPPORT_ROLE_ID;
+const paypalUrl = process.env.PAYPAL_URL;
+const bizumNumber = process.env.BIZUM_NUMBER;
 const parseIds = (value) => (value || '')
   .split(',')
   .map((id) => id.trim())
@@ -189,7 +190,7 @@ if (!token) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 });
 
 const commands = [
@@ -197,6 +198,10 @@ const commands = [
     .setName('ticket-panel')
     .setDescription('Publica el panel para abrir tickets')
     .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageGuild)
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('aportacion')
+    .setDescription('Muestra los métodos de aportación')
     .toJSON(),
 ];
 
@@ -278,8 +283,45 @@ client.once(Events.ClientReady, async (readyClient) => {
   console.log('Canal de transcripciones preparado.');
 });
 
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot || message.content.trim().toLowerCase() !== '!aportacion') return;
+
+  const paymentDetails = [
+    paypalUrl ? `**PayPal:** ${paypalUrl}` : '**PayPal:** No configurado',
+    bizumNumber ? `**Bizum:** ${bizumNumber}` : '**Bizum:** No configurado',
+  ].join('\n');
+
+  await message.channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(ticketCategories.aportaciones.color)
+        .setTitle('💝 Aportaciones')
+        .setDescription(`Puedes realizar tu aportación mediante estos métodos:\n\n${paymentDetails}`)
+        .setFooter({ text: 'Gracias por apoyar el servidor.' }),
+    ],
+  });
+});
+
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    if (interaction.isChatInputCommand() && interaction.commandName === 'aportacion') {
+      const paymentDetails = [
+        paypalUrl ? `**PayPal:** ${paypalUrl}` : '**PayPal:** No configurado',
+        bizumNumber ? `**Bizum:** ${bizumNumber}` : '**Bizum:** No configurado',
+      ].join('\n');
+
+      await interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(ticketCategories.aportaciones.color)
+            .setTitle('💝 Aportaciones')
+            .setDescription(`Puedes realizar tu aportación mediante estos métodos:\n\n${paymentDetails}`)
+            .setFooter({ text: 'Gracias por apoyar el servidor.' }),
+        ],
+      });
+      return;
+    }
+
     if (interaction.isChatInputCommand() && interaction.commandName === 'ticket-panel') {
       await interaction.deferReply({ ephemeral: true });
       const messages = await interaction.channel.messages.fetch({ limit: 100 });
