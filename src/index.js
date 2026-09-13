@@ -11,11 +11,14 @@ const {
   EmbedBuilder,
   Events,
   GatewayIntentBits,
+  ModalBuilder,
   PermissionsBitField,
   REST,
   Routes,
   SlashCommandBuilder,
   StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } = require('discord.js');
 
 const token = process.env.DISCORD_TOKEN;
@@ -203,10 +206,6 @@ const commands = [
   new SlashCommandBuilder()
     .setName('sugerencia')
     .setDescription('Envía una sugerencia para el servidor')
-    .addStringOption((option) => option
-      .setName('texto')
-      .setDescription('Escribe tu sugerencia')
-      .setRequired(true))
     .toJSON(),
 ];
 
@@ -312,7 +311,34 @@ client.on(Events.MessageCreate, async (message) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isChatInputCommand() && interaction.commandName === 'sugerencia') {
-      const suggestion = interaction.options.getString('texto', true).trim();
+      const modal = new ModalBuilder()
+        .setCustomId('suggestion-form')
+        .setTitle('Nueva sugerencia');
+      const titleInput = new TextInputBuilder()
+        .setCustomId('suggestion-title')
+        .setLabel('Título')
+        .setPlaceholder('Escribe el título')
+        .setStyle(TextInputStyle.Short)
+        .setMaxLength(100)
+        .setRequired(true);
+      const descriptionInput = new TextInputBuilder()
+        .setCustomId('suggestion-description')
+        .setLabel('Descripción')
+        .setPlaceholder('Describe tu sugerencia')
+        .setStyle(TextInputStyle.Paragraph)
+        .setMaxLength(2000)
+        .setRequired(true);
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(titleInput),
+        new ActionRowBuilder().addComponents(descriptionInput),
+      );
+      await interaction.showModal(modal);
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'suggestion-form') {
+      const suggestionTitle = interaction.fields.getTextInputValue('suggestion-title').trim();
+      const suggestion = interaction.fields.getTextInputValue('suggestion-description').trim();
       const targetChannel = suggestionsChannelId
         ? await interaction.guild.channels.fetch(suggestionsChannelId).catch(() => null)
         : interaction.channel;
@@ -329,7 +355,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         embeds: [
           new EmbedBuilder()
             .setColor(0x2ecc71)
-            .setTitle('💡 Nueva sugerencia')
+            .setTitle(`💡 ${suggestionTitle}`)
             .setDescription(suggestion)
             .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
             .setFooter({ text: 'Vota con 👍 o 👎' }),
