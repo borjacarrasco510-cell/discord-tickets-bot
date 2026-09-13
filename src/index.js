@@ -313,18 +313,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand() && interaction.commandName === 'sugerencia') {
       const modal = new ModalBuilder()
         .setCustomId('suggestion-form')
-        .setTitle('Nueva sugerencia');
+        .setTitle('Buzón de sugerencias');
       const titleInput = new TextInputBuilder()
         .setCustomId('suggestion-title')
-        .setLabel('Título')
-        .setPlaceholder('Escribe el título')
+        .setLabel('Título de la sugerencia')
+        .setPlaceholder('Ejemplo: Más eventos los fines de semana')
         .setStyle(TextInputStyle.Short)
         .setMaxLength(100)
         .setRequired(true);
       const descriptionInput = new TextInputBuilder()
         .setCustomId('suggestion-description')
-        .setLabel('Descripción')
-        .setPlaceholder('Describe tu sugerencia')
+        .setLabel('Describe tu propuesta')
+        .setPlaceholder('Explica tu idea con el mayor detalle posible')
         .setStyle(TextInputStyle.Paragraph)
         .setMaxLength(2000)
         .setRequired(true);
@@ -356,9 +356,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
           new EmbedBuilder()
             .setColor(0x2ecc71)
             .setTitle(`💡 ${suggestionTitle}`)
-            .setDescription(suggestion)
-            .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
-            .setFooter({ text: 'Vota con 👍 o 👎' }),
+            .setDescription(`> ${suggestion.replace(/\n/g, '\n> ')}`)
+            .setAuthor({ name: `Sugerencia de ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
+            .setFooter({ text: 'Vota con 👍 o 👎 • Gracias por ayudar a mejorar el servidor' })
+            .setTimestamp(),
         ],
       });
       await suggestionMessage.react('👍');
