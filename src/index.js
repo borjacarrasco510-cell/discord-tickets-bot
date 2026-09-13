@@ -212,6 +212,10 @@ const commands = [
     .setName('warn')
     .setDescription('Registra una sanción del servidor')
     .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages)
+    .addUserOption((option) => option
+      .setName('usuario')
+      .setDescription('Usuario que recibe la sanción')
+      .setRequired(true))
     .toJSON(),
 ];
 
@@ -327,8 +331,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
+      const targetUser = interaction.options.getUser('usuario', true);
       const modal = new ModalBuilder()
-        .setCustomId('warn-form')
+        .setCustomId(`warn-form:${targetUser.id}`)
         .setTitle('Registrar sanción');
       const titleInput = new TextInputBuilder()
         .setCustomId('warn-title')
@@ -361,7 +366,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    if (interaction.isModalSubmit() && interaction.customId === 'warn-form') {
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('warn-form:')) {
       const isStaff = interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageMessages);
 
       if (!isStaff) {
@@ -372,6 +377,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
+      const targetUserId = interaction.customId.split(':')[1];
       const warnTitle = interaction.fields.getTextInputValue('warn-title').trim();
       const warnReason = interaction.fields.getTextInputValue('warn-reason').trim();
       const warnStaff = interaction.fields.getTextInputValue('warn-staff').trim();
@@ -388,11 +394,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       const warnMessage = await targetChannel.send({
+        content: `<@${targetUserId}>`,
         embeds: [
           new EmbedBuilder()
             .setColor(0xe74c3c)
             .setTitle(`⚠️ ${warnTitle}`)
             .addFields(
+              { name: 'Usuario sancionado', value: `<@${targetUserId}>`, inline: true },
               { name: 'Motivo', value: warnReason },
               { name: 'Sanción puesta por', value: warnStaff, inline: true },
             )
