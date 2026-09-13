@@ -31,6 +31,7 @@ const donationSupportRoleId = process.env.DONATION_SUPPORT_ROLE_ID;
 const paypalUrl = process.env.PAYPAL_URL;
 const bizumNumber = process.env.BIZUM_NUMBER;
 const suggestionsChannelId = process.env.SUGGESTIONS_CHANNEL_ID;
+const warnChannelId = process.env.WARN_CHANNEL_ID;
 const parseIds = (value) => (value || '')
   .split(',')
   .map((id) => id.trim())
@@ -207,6 +208,11 @@ const commands = [
     .setName('sugerencia')
     .setDescription('Envía una sugerencia para el servidor')
     .toJSON(),
+  new SlashCommandBuilder()
+    .setName('warn')
+    .setDescription('Registra una sanción del servidor')
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageMessages)
+    .toJSON(),
 ];
 
 async function registerCommands() {
@@ -310,6 +316,98 @@ client.on(Events.MessageCreate, async (message) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    if (interaction.isChatInputCommand() && interaction.commandName === 'warn') {
+      const isStaff = interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageMessages);
+
+      if (!isStaff) {
+        await interaction.reply({
+          content: 'Solo el staff puede utilizar este comando.',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const modal = new ModalBuilder()
+        .setCustomId('warn-form')
+        .setTitle('Registrar sanción');
+      const titleInput = new TextInputBuilder()
+        .setCustomId('warn-title')
+        .setLabel('Título de la sanción')
+        .setPlaceholder('Ejemplo: Advertencia por insultos')
+        .setStyle(TextInputStyle.Short)
+        .setMaxLength(100)
+        .setRequired(true);
+      const reasonInput = new TextInputBuilder()
+        .setCustomId('warn-reason')
+        .setLabel('Motivo')
+        .setPlaceholder('Explica el motivo de la sanción')
+        .setStyle(TextInputStyle.Paragraph)
+        .setMaxLength(2000)
+        .setRequired(true);
+      const staffInput = new TextInputBuilder()
+        .setCustomId('warn-staff')
+        .setLabel('Quién la ha puesto')
+        .setPlaceholder('Nombre del miembro del staff')
+        .setStyle(TextInputStyle.Short)
+        .setMaxLength(100)
+        .setValue(interaction.user.displayName)
+        .setRequired(true);
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(titleInput),
+        new ActionRowBuilder().addComponents(reasonInput),
+        new ActionRowBuilder().addComponents(staffInput),
+      );
+      await interaction.showModal(modal);
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'warn-form') {
+      const isStaff = interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageMessages);
+
+      if (!isStaff) {
+        await interaction.reply({
+          content: 'Solo el staff puede utilizar este formulario.',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const warnTitle = interaction.fields.getTextInputValue('warn-title').trim();
+      const warnReason = interaction.fields.getTextInputValue('warn-reason').trim();
+      const warnStaff = interaction.fields.getTextInputValue('warn-staff').trim();
+      const targetChannel = warnChannelId
+        ? await interaction.guild.channels.fetch(warnChannelId).catch(() => null)
+        : interaction.channel;
+
+      if (!targetChannel?.isTextBased()) {
+        await interaction.reply({
+          content: 'No se encontró el canal de sanciones.',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const warnMessage = await targetChannel.send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xe74c3c)
+            .setTitle(`⚠️ ${warnTitle}`)
+            .addFields(
+              { name: 'Motivo', value: warnReason },
+              { name: 'Sanción puesta por', value: warnStaff, inline: true },
+            )
+            .setFooter({ text: 'Registro de sanción' })
+            .setTimestamp(),
+        ],
+      });
+      await warnMessage.react('✅');
+      await interaction.reply({
+        content: `La sanción se ha registrado en ${targetChannel}.`,
+        ephemeral: true,
+      });
+      return;
+    }
+
     if (interaction.isChatInputCommand() && interaction.commandName === 'sugerencia') {
       const modal = new ModalBuilder()
         .setCustomId('suggestion-form')
